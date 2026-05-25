@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+# Runtime demo output (recreated on submit)
+data/*.json
+# Never commit private keys created by the AWS deploy script
+aws-deploy/*.pem

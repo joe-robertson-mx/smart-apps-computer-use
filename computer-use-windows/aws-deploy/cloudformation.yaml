@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  BOAT 2026 computer-use demo - Windows Server EC2 host. Boots a Windows desktop,
+  installs Python + the demo, opens the firewall for the computer-use server, and
+  exposes RDP so a presenter can connect and run the demo. Tear down by deleting
+  this stack (no other resources are created outside it).
+
+Parameters:
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Existing EC2 key pair, used to retrieve the Windows Administrator password.
+  AllowedCidr:
+    Type: String
+    Description: CIDR allowed to reach RDP (3389), the computer-use server (8081) and the portal (5050). Use your /32 public IP - NOT 0.0.0.0/0.
+    AllowedPattern: ^(\d{1,3}\.){3}\d{1,3}/\d{1,2}$
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC to launch into (a default VPC is fine).
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: A public subnet in the chosen VPC (auto-assigns a public IP / has an internet gateway route).
+  InstanceType:
+    Type: String
+    Default: t3.large
+    Description: Windows GUI is sluggish below 8 GB RAM; t3.large is a good demo default.
+    AllowedValues: [t3.medium, t3.large, t3.xlarge, m5.large, m5.xlarge]
+  RepoUrl:
+    Type: String
+    Default: https://github.com/mendixlabs/smart-apps-computer-use.git
+    Description: Public Git repo the instance clones the demo from.
+  WindowsAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base
+    Description: Latest Windows Server 2022 Full (GUI) AMI - resolved automatically.
+
+Resources:
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: BOAT computer-use demo - RDP + server access from the presenter only
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: RDP
+          IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: !Ref AllowedCidr
+        - Description: Computer-use server (Mendix calls this)
+          IpProtocol: tcp
+          FromPort: 8081
+          ToPort: 8081
+          CidrIp: !Ref AllowedCidr
+        - Description: Returns portal (optional remote view)
+          IpProtocol: tcp
+          FromPort: 5050
+          ToPort: 5050
+          CidrIp: !Ref AllowedCidr
+      Tags:
+        - Key: Project
+          Value: boat-2026-computer-use
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Project
+          Value: boat-2026-computer-use
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  DemoInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref WindowsAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 60
+            VolumeType: gp3
+            DeleteOnTermination: true
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetId
+          GroupSet:
+            - !Ref ServerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: boat-2026-computer-use
+        - Key: Project
+          Value: boat-2026-computer-use
+      UserData:
+        Fn::Base64: !Sub |
+          <powershell>
+          $ErrorActionPreference = "Continue"
+          $log = "C:\bootstrap.log"
+          function Log($m) { "$(Get-Date -Format o)  $m" | Out-File -FilePath $log -Append -Encoding utf8 }
+          Log "Bootstrap starting"
+
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+          # Chocolatey
+          try {
+            Set-ExecutionPolicy Bypass -Scope Process -Force
+            iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            Log "Chocolatey installed"
+          } catch { Log "Chocolatey install failed: $_" }
+
+          $choco = "C:\ProgramData\chocolatey\bin\choco.exe"
+          & $choco install -y python311 git --no-progress | Out-Null
+          Log "python + git installed"
+
+          # Make python/git available in this session
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
+          $py = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
+          $git = (Get-Command git.exe -ErrorAction SilentlyContinue).Source
+          if (-not $py) { $py = "C:\Python311\python.exe" }
+          if (-not $git) { $git = "C:\Program Files\Git\bin\git.exe" }
+
+          # Clone the demo
+          New-Item -ItemType Directory -Force -Path "C:\repos" | Out-Null
+          & $git clone ${RepoUrl} "C:\repos\smart-apps-computer-use" 2>&1 | Out-File -FilePath $log -Append
+          Log "repo cloned"
+
+          # Install python deps
+          & $py -m pip install --upgrade pip 2>&1 | Out-File -FilePath $log -Append
+          & $py -m pip install -r "C:\repos\smart-apps-computer-use\computer-use-windows\requirements.txt" 2>&1 | Out-File -FilePath $log -Append
+          Log "pip deps installed"
+
+          # Firewall: allow the demo ports inbound
+          New-NetFirewallRule -DisplayName "Computer Use Server 8081" -Direction Inbound -LocalPort 8081 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue
+          New-NetFirewallRule -DisplayName "Returns Portal 5050" -Direction Inbound -LocalPort 5050 -Protocol TCP -Action Allow -ErrorAction SilentlyContinue
+          Log "firewall rules added"
+
+          # Desktop shortcut to launch the demo
+          $ws = New-Object -ComObject WScript.Shell
+          $sc = $ws.CreateShortcut("C:\Users\Public\Desktop\Start BOAT Demo.lnk")
+          $sc.TargetPath = "C:\repos\smart-apps-computer-use\computer-use-windows\start_demo_env.bat"
+          $sc.WorkingDirectory = "C:\repos\smart-apps-computer-use\computer-use-windows"
+          $sc.Save()
+          Log "shortcut created"
+
+          "READY" | Out-File -FilePath "C:\bootstrap-complete.txt" -Encoding utf8
+          Log "Bootstrap complete"
+          </powershell>
+          <persist>false</persist>
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance id
+    Value: !Ref DemoInstance
+  PublicIp:
+    Description: Public IP - use for RDP and as the Mendix LocalhostIPAddress
+    Value: !GetAtt DemoInstance.PublicIp
+  ServerEndpoint:
+    Description: Computer-use server URL the Mendix app should call
+    Value: !Sub "http://${DemoInstance.PublicIp}:8081/computer_tool"
+  GetPasswordCommand:
+    Description: Run this locally to get the Windows Administrator password
+    Value: !Sub "aws ec2 get-password-data --instance-id ${DemoInstance} --priv-launch-key <path-to-your-key>.pem --region ${AWS::Region}"
+  RdpHint:
+    Description: How to connect
+    Value: !Sub "RDP to ${DemoInstance.PublicIp} as Administrator. Set the RDP window to ~1280x800 for click accuracy, then run the 'Start BOAT Demo' desktop shortcut."

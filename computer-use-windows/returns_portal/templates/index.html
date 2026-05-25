@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Siemens Customer Returns Portal</title>
+  <style>
+    body { background: #ffffff; font-family: Tahoma, Arial, sans-serif; font-size: 13px; color: #000; margin: 0; }
+    .banner { background: #708090; color: #ffffff; padding: 10px 16px; border-bottom: 3px solid #4d5663; }
+    .banner h1 { margin: 0; font-size: 16px; font-weight: bold; }
+    .banner .sub { font-size: 11px; }
+    .content { padding: 18px 24px; }
+    .content h2 { font-size: 15px; margin-bottom: 2px; }
+    .rule { border: 0; border-top: 1px solid #999; margin: 4px 0 16px 0; }
+    table.form { border-collapse: collapse; }
+    table.form td { padding: 5px 8px; vertical-align: top; }
+    table.form td.lbl { text-align: right; font-weight: bold; white-space: nowrap; }
+    input[type=text], select, textarea {
+      font-family: Tahoma, Arial, sans-serif; font-size: 13px;
+      border: 1px solid #7f9db9; padding: 2px 4px; background: #ffffff;
+    }
+    input[type=text] { width: 280px; }
+    select { width: 290px; }
+    textarea { width: 280px; }
+    .submit-row { padding-top: 14px; }
+    input[type=submit] {
+      font-family: Tahoma, Arial, sans-serif; font-size: 13px; font-weight: bold;
+      padding: 5px 18px; background: #e1e1e1; border: 1px solid #707070; cursor: pointer;
+    }
+    .footer { margin-top: 30px; border-top: 1px solid #999; padding: 8px 24px; font-size: 11px; color: #555; }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <h1>Siemens Customer Returns Portal</h1>
+    <div class="sub">Internal Use Only</div>
+  </div>
+
+  <div class="content">
+    <h2>Create New Dispatch Record</h2>
+    <hr class="rule">
+
+    <form method="post" action="/submit">
+      <table class="form">
+        <tr>
+          <td class="lbl">Case Reference:</td>
+          <td><input type="text" name="case_reference" value="{{ prefill.case_reference }}"></td>
+        </tr>
+        <tr>
+          <td class="lbl">Customer Name:</td>
+          <td><input type="text" name="customer_name" value="{{ prefill.customer_name }}"></td>
+        </tr>
+        <tr>
+          <td class="lbl">Product Code:</td>
+          <td><input type="text" name="product_code" value="{{ prefill.product_code }}"></td>
+        </tr>
+        <tr>
+          <td class="lbl">Dispatch Type:</td>
+          <td>
+            <select name="dispatch_type">
+              {% for dt in dispatch_types %}
+              <option value="{{ dt }}">{{ dt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="lbl">Shipping Address:</td>
+          <td><input type="text" name="shipping_address_1" placeholder="Street and number"></td>
+        </tr>
+        <tr>
+          <td class="lbl"></td>
+          <td><input type="text" name="shipping_address_2" placeholder="Postcode, city, country"></td>
+        </tr>
+        <tr>
+          <td class="lbl">Courier:</td>
+          <td>
+            <select name="courier">
+              {% for c in couriers %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <td class="lbl">Notes:</td>
+          <td><textarea name="notes" rows="2"></textarea></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td class="submit-row">
+            <input type="submit" value="Create Dispatch Record">
+          </td>
+        </tr>
+      </table>
+    </form>
+  </div>
+
+  <div class="footer">&copy; Siemens AG &mdash; Internal Portal v1.4</div>
+</body>
+</html>
