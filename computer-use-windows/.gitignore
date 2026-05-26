@@ -4,6 +4,6 @@ __pycache__/
 data/*.json
 # Never commit private keys created by the AWS deploy script
 aws-deploy/*.pem
-# Per-deploy artifacts (instance-specific)
+# Per-deploy artifacts (instance-specific, may contain secrets)
 aws-deploy/*.rdp
-aws-deploy/ssm_install_vnc.json
+aws-deploy/ssm_*.json

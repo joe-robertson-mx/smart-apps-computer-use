@@ -92,8 +92,41 @@ http://<public-ip>:6080/vnc.html?autoconnect=1&resize=scale&view_only=1&reconnec
 ```
 
 Caveat: TightVNC mirrors the active session. If nobody is RDP'd in, you'll see
-the Windows login screen. RDP in first (which also creates the interactive
-session pyautogui needs), then run **Start BOAT Demo**.
+the Windows login screen. Either RDP in to create that session, or run the
+AutoLogon step below so the desktop is always live.
+
+## Optional: AutoLogon + autostart (recommended for the demo)
+
+The login screen blocks computer-use — pyautogui needs an active interactive
+session, and a disconnected RDP locks the session. `enable_autologon.ps1`
+configures Windows to auto-login as Administrator on every boot and adds the
+demo's start script to the Startup folder, so the noVNC iframe always shows a
+live, demo-ready desktop with no RDP needed.
+
+**Tradeoff:** stores the Administrator password in plaintext in the registry
+(`HKLM\...\Winlogon\DefaultPassword`). Acceptable for a throwaway demo instance
+behind an IP-restricted security group; not for long-lived/shared hosts.
+
+```powershell
+# Get the admin password (decrypted via the .pem from deploy.ps1):
+$pw = aws ec2 get-password-data --instance-id <i-...> `
+        --priv-launch-key boat-computer-use-key.pem `
+        --region eu-west-1 --query PasswordData --output text
+
+# Build the SSM payload: set the env var, then run the sanitized script.
+$script = Get-Content -Raw enable_autologon.ps1
+$payload = "`$env:AUTOLOGON_PASSWORD = '$pw'`n$script"
+@{ commands = @($payload) } | ConvertTo-Json -Depth 5 | Out-File ssm_autologon.json -Encoding utf8
+
+$cmd = aws ssm send-command --instance-ids <i-...> `
+        --document-name AWS-RunPowerShellScript `
+        --parameters file://ssm_autologon.json `
+        --region eu-west-1 --query "Command.CommandId" --output text
+aws ssm wait command-executed --command-id $cmd --instance-id <i-...> --region eu-west-1
+```
+
+The instance reboots ~15 s after the script reports success; SSM comes back
+online ~60-90 s later with Administrator already logged in.
 
 ## Teardown (stop billing)
 
