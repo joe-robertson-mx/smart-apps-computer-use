@@ -55,6 +55,11 @@ Resources:
           FromPort: 5050
           ToPort: 5050
           CidrIp: !Ref AllowedCidr
+        - Description: noVNC web gateway (browser viewer of the Windows desktop, iframable in Mendix)
+          IpProtocol: tcp
+          FromPort: 6080
+          ToPort: 6080
+          CidrIp: !Ref AllowedCidr
       Tags:
         - Key: Project
           Value: boat-2026-computer-use

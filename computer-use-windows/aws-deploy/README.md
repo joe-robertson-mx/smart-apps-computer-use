@@ -20,6 +20,7 @@ deploy.ps1  ─► CloudFormation stack ─► Windows EC2 instance
 | Security group | RDP 3389, server 8081, portal 5050 — **only from your IP** |
 | IAM role + instance profile | SSM management (Session Manager) |
 | EC2 key pair (auto-created) | Decrypts the Windows Administrator password |
+| Security group ingress 6080 | (Optional) noVNC web gateway — for embedding the desktop in a Mendix iframe |
 
 ## Prerequisites
 
@@ -59,6 +60,40 @@ The script prints the **PublicIp** and the **ServerEndpoint**
    restart each time).
 5. In Mendix, set the `ComputerUse` constant `LocalhostIPAddress` to the EC2
    **PublicIp** so it calls the instance.
+
+## Optional: noVNC web viewer (iframe in Mendix)
+
+To show the live Windows desktop inside the Mendix app (mirroring the Linux
+noVNC pattern), run `install_vnc.ps1` once on the instance via SSM after the
+bootstrap finishes:
+
+```powershell
+# from your laptop (after aws sso login):
+$cmd = aws ssm send-command `
+  --instance-ids <i-...> `
+  --document-name AWS-RunPowerShellScript `
+  --parameters file://ssm_install_vnc.json `
+  --region eu-west-1 --timeout-seconds 600 `
+  --query "Command.CommandId" --output text
+aws ssm wait command-executed --command-id $cmd --instance-id <i-...> --region eu-west-1
+```
+
+What it installs (persistent, restart-survives):
+
+- **TightVNC server**, bound to `127.0.0.1:5900`, no VNC auth (the security
+  group is the access control).
+- **websockify + noVNC** on `0.0.0.0:6080`.
+- A **scheduled task** that starts websockify at every boot.
+
+Iframe URL for the Mendix widget (same parameter pattern as the Linux setup):
+
+```
+http://<public-ip>:6080/vnc.html?autoconnect=1&resize=scale&view_only=1&reconnect=1&reconnect_delay=2000
+```
+
+Caveat: TightVNC mirrors the active session. If nobody is RDP'd in, you'll see
+the Windows login screen. RDP in first (which also creates the interactive
+session pyautogui needs), then run **Start BOAT Demo**.
 
 ## Teardown (stop billing)
 
