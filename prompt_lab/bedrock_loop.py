@@ -4,15 +4,38 @@ Invokes Bedrock, executes each `computer` tool-use via the REST executor, feeds 
 screenshot back as a tool_result, and repeats until end_turn / step cap. In
 conversational mode a driver supplies the next user prompt when the model yields.
 """
+import os
 import time
 from typing import Optional
 
 from prompt_lab.models import ModelSpec
 from prompt_lab.transcript import ToolCall, Transcript
 
+# Keep only the most recent N screenshots in the message history; older ones are
+# replaced with a placeholder so context/cost stay bounded over a long episode.
+MAX_IMAGES = int(os.getenv("PROMPT_LAB_MAX_IMAGES", "3"))
+
 
 def _tool_uses(message: dict) -> list[dict]:
     return [b for b in message.get("content", []) if b.get("type") == "tool_use"]
+
+
+def _truncate_images(messages: list[dict], keep: int) -> None:
+    """Strip image blocks from all but the most recent `keep` screenshots."""
+    seen = 0
+    for msg in reversed(messages):
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        new_content = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "image":
+                seen += 1
+                if seen > keep:
+                    new_content.append({"type": "text", "text": "[screenshot omitted]"})
+                    continue
+            new_content.append(block)
+        msg["content"] = new_content
 
 
 def run_episode(bedrock, executor, spec: ModelSpec, system: str, user_prompt: str,
@@ -22,6 +45,7 @@ def run_episode(bedrock, executor, spec: ModelSpec, system: str, user_prompt: st
     t.messages.append({"role": "user", "content": [{"type": "text", "text": user_prompt}]})
 
     while True:
+        _truncate_images(t.messages, MAX_IMAGES)
         message = bedrock.invoke(spec, system, t.messages, max_tokens=1024)
         t.steps += 1
         t.messages.append({"role": message.get("role", "assistant"),

@@ -6,6 +6,7 @@ wires the real BedrockClient/ExecutorClient/ControlClient.
 import argparse
 import glob
 import os
+import time
 
 from prompt_lab import report
 from prompt_lab.bedrock_loop import run_episode
@@ -22,6 +23,7 @@ STEP_CAP = int(os.getenv("PROMPT_LAB_STEP_CAP", "30"))
 def _run_cell(variant, scenario, spec, bedrock, executor, control, persona_complete):
     setup = control.setup(scenario.target, scenario.case)
     baseline = setup.get("baseline_count", 0)
+    time.sleep(float(os.getenv("PROMPT_LAB_SETTLE", "3")))  # let the app relaunch/settle
     user_prompt = render_user(variant, scenario.case)
 
     driver = None
@@ -56,8 +58,14 @@ def run_matrix(variants, scenarios, model_keys, repeats, bedrock, executor, cont
             for model_key in model_keys:
                 spec = spec_for(model_key)
                 for _ in range(repeats):
-                    cells.append(_run_cell(variant, scenario, spec, bedrock, executor,
-                                           control, persona_complete))
+                    try:
+                        cells.append(_run_cell(variant, scenario, spec, bedrock, executor,
+                                               control, persona_complete))
+                    except Exception as exc:  # keep the matrix going if one episode dies
+                        cells.append({"variant": variant.id, "scenario": scenario.id,
+                                      "model": spec.key, "passed": False,
+                                      "reasons": [f"episode error: {exc}"],
+                                      "steps": 0, "cost": 0.0, "metrics": {}})
     return cells
 
 
