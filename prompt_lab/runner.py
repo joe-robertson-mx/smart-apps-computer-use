@@ -5,6 +5,7 @@ wires the real BedrockClient/ExecutorClient/ControlClient.
 """
 import argparse
 import glob
+import os
 
 from prompt_lab import report
 from prompt_lab.bedrock_loop import run_episode
@@ -15,7 +16,7 @@ from prompt_lab.prompts import PromptVariant, load_variant, render_user
 from prompt_lab.scenarios import Scenario, load_scenario
 from prompt_lab.scoring import score
 
-STEP_CAP = 30
+STEP_CAP = int(os.getenv("PROMPT_LAB_STEP_CAP", "30"))
 
 
 def _run_cell(variant, scenario, spec, bedrock, executor, control, persona_complete):

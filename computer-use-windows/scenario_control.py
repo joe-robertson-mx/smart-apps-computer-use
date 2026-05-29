@@ -28,18 +28,47 @@ class FakeLauncher:
 
 
 class SubprocessLauncher:
-    """Real host launcher. Best-effort: relaunch the desktop app / ensure the web tab."""
+    """Real host launcher. App-specific reset so resetting one app never kills another.
+
+    warranty: kill only the warranty_case_manager.py process, then relaunch it.
+    returns:  leave Flask running; close the browser and reopen a fresh form tab.
+    """
+    def _kill_by_cmdline(self, needle: str):
+        if sys.platform != "win32":
+            return
+        ps = (
+            "Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='pythonw.exe'\" "
+            "| Where-Object { $_.CommandLine -like '*" + needle + "*' } "
+            "| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+        )
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True)
+
+    def _flask_up(self) -> bool:
+        import urllib.request
+        try:
+            urllib.request.urlopen("http://localhost:5050/", timeout=3)
+            return True
+        except Exception:
+            return False
+
+    def _ensure_flask(self):
+        if not self._flask_up():
+            subprocess.Popen(["pythonw", os.path.join(HERE, "returns_portal", "app.py")], cwd=HERE)
+
     def stop(self, app):
-        if app == "warranty" and sys.platform == "win32":
-            subprocess.run(["taskkill", "/F", "/IM", "pythonw.exe"], capture_output=True)
+        if app == "warranty":
+            self._kill_by_cmdline("warranty_case_manager.py")
+        elif app == "returns" and sys.platform == "win32":
+            # Close the browser so we can reopen a clean form; leave Flask running.
+            subprocess.run(["taskkill", "/F", "/IM", "msedge.exe"], capture_output=True)
 
     def start(self, app, case):
         if app == "warranty":
-            subprocess.Popen(["pythonw", os.path.join(HERE, "warranty_case_manager.py")])
+            subprocess.Popen(["pythonw", os.path.join(HERE, "warranty_case_manager.py")], cwd=HERE)
         elif app == "returns":
-            # Flask is started by start_demo_env.bat; just (re)open the tab on the host.
+            self._ensure_flask()
             if sys.platform == "win32":
-                subprocess.Popen(["cmd", "/c", "start", "msedge", "http://localhost:5050"])
+                subprocess.Popen(["cmd", "/c", "start", "", "msedge", "http://localhost:5050"])
 
 
 class ControlHandler:

@@ -4,7 +4,14 @@ Ground truth for the ids/versions/betas is the repo files
 `claude-opus-4-7-model-details.txt` and `claude-sonnet-4-5-model-details.txt`.
 Prices are list $/million tokens — verify against current Bedrock eu-west-1 pricing.
 """
+import os
 from dataclasses import dataclass
+
+# Display dimensions the executor's screen is at. MUST match the real desktop
+# resolution on the host (the executor does not scale coordinates). Overridable
+# via env so the lab can be aligned to the actual host without code changes.
+_W = int(os.getenv("PROMPT_LAB_W", "1280"))
+_H = int(os.getenv("PROMPT_LAB_H", "800"))
 
 
 @dataclass(frozen=True)
@@ -26,8 +33,8 @@ MODELS = {
         model_id="eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
         tool_type="computer_20250124",
         beta_flag="computer-use-2025-01-24",
-        display_width=1280,
-        display_height=800,
+        display_width=_W,
+        display_height=_H,
         display_number=1,
         price_in=3.0,
         price_out=15.0,
@@ -37,8 +44,8 @@ MODELS = {
         model_id="eu.anthropic.claude-opus-4-7",
         tool_type="computer_20251124",
         beta_flag="computer-use-2025-11-24",
-        display_width=1280,
-        display_height=800,
+        display_width=_W,
+        display_height=_H,
         display_number=1,
         price_in=15.0,
         price_out=75.0,
