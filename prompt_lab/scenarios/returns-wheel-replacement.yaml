@@ -1,0 +1,19 @@
+id: returns-wheel-replacement
+mode: conversational
+target: returns
+case:
+  case_id: EQ-2026-0042
+  customer: "Robertson, J."
+  product_code: "AW-200-REAR"
+expected_record:
+  # Keys match returns_portal/app.py submit payload (snake_case).
+  dispatch_type: "Wheel Replacement"
+  courier: "DHL"
+script:
+  - "Open the returns portal and start a new dispatch record for case EQ-2026-0042."
+  - "Set dispatch type to Wheel Replacement and courier to DHL."
+  - "Add the shipping address and a brief note, then create the dispatch record."
+goal: >
+  Create a Wheel Replacement dispatch record for case EQ-2026-0042 via DHL,
+  with a shipping address and a short note, and submit it.
+max_user_prompts: 4

@@ -1,0 +1,14 @@
+id: warranty-wheel-replacement
+mode: single_prompt
+target: warranty
+case:
+  case_id: EQ-2026-0042
+  customer: "Robertson, J."
+  product: "Evora Alloy Wheel AW-200"
+  recommended_action: "Approve free-of-charge replacement of the affected rear alloy wheels and raise a safety recall."
+  uuid: "A1B2C3"
+expected_record:
+  # Keys match warranty_case_manager.py submit payload (all snake_case).
+  status: "Replacement Approved"
+  dispatch_ref: "DISP-A1B2C3"
+  resolution: { contains: "replacement" }
