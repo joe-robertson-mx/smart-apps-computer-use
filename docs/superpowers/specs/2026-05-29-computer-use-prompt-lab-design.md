@@ -179,51 +179,42 @@ routes to, keeping the action code untouched.
 
 ### 7.1 Scenario (`scenarios/*.yaml`)
 ```yaml
-id: warranty-crankset-replacement
+id: warranty-wheel-replacement
 mode: single_prompt          # or: conversational
 target: warranty             # warranty | returns
 case:                        # injected into prompt templates + used by /control/setup
-  case_id: EQ-2026-0042                                   # intake case ref (product-agnostic)
-  customer: "Velocycle Group GmbH"                        # B2B dealer; Stefan Berg, Partner LTO-DE-VCG-0047
-  product: "Lato CityWide Urban X — Bottom Bracket Assembly"
-  part: "LTO-CRK-8050-BB"
-  batch: "LTO-2025-1143"
+  case_id: EQ-2026-0042
+  customer: "Robertson, J."                       # Berlin fleet operator, ~200 vehicles
+  product: "Evora Alloy Wheel AW-200"             # rear alloy wheel (AW-200-REAR)
   recommended_action: >
-    Approve warranty replacement programme for the 28 affected units from batch
-    LTO-2025-1143; quarantine the 21 unsold dealer units; initiate field recall.
+    Approve free-of-charge replacement of the affected rear alloy wheels and
+    raise a safety recall (34 cracked, 6 road failures, 2 injuries).
   uuid: "A1B2C3"
 expected_record:             # ground truth for scoring (keys mirror the app's JSON schema)
-  Resolution: { contains: "LTO-2025-1143" }   # agent must enter the batch ref into the case
+  Resolution: { contains: "replacement" }
   Status: "Replacement Approved"
   DispatchRef: "DISP-A1B2C3"
 # conversational only:
 script:                      # scripted driver — the exact demo prompt sequence
   - "Open the returns portal and start a new dispatch record for case EQ-2026-0042."
-  - "Set dispatch type to Warranty Replacement and courier to DHL."
-  - "Add the dealer shipping address and a note referencing batch LTO-2025-1143, then create the dispatch record."
+  - "Set dispatch type to Wheel Replacement and courier to DHL."
+  - "Add the shipping address and a brief note, then create the dispatch record."
 goal: >                      # persona driver — same intent, free phrasing
-  Create a Warranty Replacement dispatch record for case EQ-2026-0042 (Velocycle
-  Group, part LTO-CRK-8050-BB, batch LTO-2025-1143) via DHL, with the dealer
-  shipping address and a short note, and submit it.
+  Create a Wheel Replacement dispatch record for case EQ-2026-0042 via DHL,
+  with a shipping address and a short note, and submit it.
 max_user_prompts: 4          # conversational efficiency cap
 ```
 
-> **Ground truth note.** The demo scenario is the **Lato Bicycles CityWide Urban X
-> crankset / bottom-bracket bearing failure** complaint (source:
-> `boat-2026/outputs/demo-complaint-email.md`): B2B dealer Velocycle Group GmbH, part
-> `LTO-CRK-8050-BB`, batch `LTO-2025-1143`, 28 affected units. Per that email's expected
-> agent behaviour, the computer-use agent enters the batch and part into the legacy
-> system. `expected_record` keys mirror the **actual app code** — the implementer reads
-> field names/options from `warranty_case_manager.py` and `returns_portal/app.py`.
->
-> ⚠️ **App data mismatch to resolve before authoring scenarios.** The live apps currently
-> prefill the *alloy-wheels* variant, not the crankset complaint:
-> `warranty_case_manager.py` (Customer `Robertson, J.`, Product `Evora Alloy Wheel
-> AW-200`, Case `EQ-2026-0042`) and `returns_portal/app.py` (`product_code AW-200-REAR`,
-> dispatch-type option `Wheel Replacement`, no `Warranty Replacement`-as-default). For the
-> crankset narrative these prefilled/dropdown values must be aligned — either update the
-> apps to the Lato crankset data, or match the scenarios to the apps. Confirm which
-> narrative is canonical for the apps (see §13).
+> **Ground truth note.** The demo scenario is the **Evora reinforced alloy-wheel failure**
+> complaint (source: `boat-2026/outputs/demo-complaint-email-wheels.md`): a Berlin fleet
+> operator (Joe Robertson, ~200 vehicles) reporting 34 cracked rear wheels, 6 road
+> failures, 2 injuries. The computer-use agent records the warranty resolution in the
+> desktop app and creates the replacement dispatch in the web portal. The live apps
+> already prefill this narrative — `warranty_case_manager.py` (Customer `Robertson, J.`,
+> Product `Evora Alloy Wheel AW-200`, Case `EQ-2026-0042`) and `returns_portal/app.py`
+> (`product_code AW-200-REAR`, dispatch type `Wheel Replacement`) — so scenario data and
+> app data agree. `expected_record` keys mirror the actual app JSON; the implementer reads
+> exact field names from the two app files when authoring scenarios.
 
 ### 7.2 Prompt variant (`prompts/*.md`)
 A file per variant with `system:` and `user:` blocks (user supports `{placeholders}` filled
@@ -323,12 +314,10 @@ computer-use-windows/
 ## 13. Open items & out of scope
 
 ### Open items (resolve before/early in implementation)
-- **Canonical narrative for the target apps.** The demo complaint is the Lato crankset
-  failure (§7.1), but `warranty_case_manager.py` / `returns_portal/app.py` currently prefill
-  the alloy-wheels variant. Decide whether to update the apps to the crankset data or match
-  scenarios to the apps; scoring is only meaningful once they agree.
 - **Confirm the JSON record schema** the apps actually write (exact keys/case) by reading
-  the two app files; `expected_record` keys must match them verbatim.
+  `warranty_case_manager.py` and `returns_portal/app.py`; `expected_record` keys must match
+  them verbatim. (Narrative is settled: Evora alloy-wheel complaint, and the apps already
+  prefill it.)
 
 ### Out of scope (deferred)
 - Automated push of prompts into Mendix (manual paste for now; MCP push later).
