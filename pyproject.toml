@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+pythonpath = [".", "computer-use-windows"]
+testpaths = ["tests"]
+addopts = "-q"
