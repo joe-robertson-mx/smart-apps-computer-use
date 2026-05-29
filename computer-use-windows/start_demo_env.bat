@@ -31,4 +31,4 @@ REM Start the Windows computer-use server last, in this console window so its
 REM logs are visible. Close this window to stop the server.
 timeout /t 1 /nobreak >nul
 echo Starting Windows computer use server (port 8081, or COMPUTER_USE_PORT if set)...
-python windows_server.py
+python windows_server.py > C:\cu_server.log 2>&1

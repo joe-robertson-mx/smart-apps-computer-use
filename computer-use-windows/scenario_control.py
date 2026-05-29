@@ -27,21 +27,29 @@ class FakeLauncher:
         self.started.append((app, case))
 
 
-class SubprocessLauncher:
-    """Real host launcher. App-specific reset so resetting one app never kills another.
+def _run(cmd):
+    """Run a short command, never hang (hard timeout), never raise."""
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=20)
+    except Exception:
+        pass
 
-    warranty: kill only the warranty_case_manager.py process, then relaunch it.
-    returns:  leave Flask running; close the browser and reopen a fresh form tab.
+
+def _spawn(args):
+    try:
+        subprocess.Popen(args, cwd=HERE)
+    except Exception:
+        pass
+
+
+class SubprocessLauncher:
+    """Real host launcher. Hang-proof (every subprocess call times out and is wrapped)
+    and scoped so a reset never touches the computer-use server itself.
+
+    warranty: kill the desktop window by title, then relaunch it.
+    returns:  keep Flask up; close the browser and reopen a fresh form tab.
     """
-    def _kill_by_cmdline(self, needle: str):
-        if sys.platform != "win32":
-            return
-        ps = (
-            "Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='pythonw.exe'\" "
-            "| Where-Object { $_.CommandLine -like '*" + needle + "*' } "
-            "| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
-        )
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True)
+    WARRANTY_TITLE = "Complaint Resolution System v2.3"
 
     def _flask_up(self) -> bool:
         import urllib.request
@@ -51,24 +59,22 @@ class SubprocessLauncher:
         except Exception:
             return False
 
-    def _ensure_flask(self):
-        if not self._flask_up():
-            subprocess.Popen(["pythonw", os.path.join(HERE, "returns_portal", "app.py")], cwd=HERE)
-
     def stop(self, app):
+        if sys.platform != "win32":
+            return
         if app == "warranty":
-            self._kill_by_cmdline("warranty_case_manager.py")
-        elif app == "returns" and sys.platform == "win32":
-            # Close the browser so we can reopen a clean form; leave Flask running.
-            subprocess.run(["taskkill", "/F", "/IM", "msedge.exe"], capture_output=True)
+            _run(["taskkill", "/F", "/FI", f"WINDOWTITLE eq {self.WARRANTY_TITLE}"])
+        elif app == "returns":
+            _run(["taskkill", "/F", "/IM", "msedge.exe"])
 
     def start(self, app, case):
         if app == "warranty":
-            subprocess.Popen(["pythonw", os.path.join(HERE, "warranty_case_manager.py")], cwd=HERE)
+            _spawn(["pythonw", os.path.join(HERE, "warranty_case_manager.py")])
         elif app == "returns":
-            self._ensure_flask()
+            if not self._flask_up():
+                _spawn(["pythonw", os.path.join(HERE, "returns_portal", "app.py")])
             if sys.platform == "win32":
-                subprocess.Popen(["cmd", "/c", "start", "", "msedge", "http://localhost:5050"])
+                _run(["cmd", "/c", "start", "", "msedge", "http://localhost:5050"])
 
 
 class ControlHandler:
