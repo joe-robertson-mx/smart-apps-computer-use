@@ -27,6 +27,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pyautogui
 
+from scenario_control import ControlHandler
+
+_control = ControlHandler()
+
 # --- Windows DPI awareness -------------------------------------------------
 # Without this, on a scaled display (>100%) pyautogui clicks and the captured
 # screenshot can live in different coordinate spaces, so clicks miss. Making
@@ -213,9 +217,25 @@ class ComputerToolHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path.startswith("/control/"):
+            code, payload = _control.handle(self.path, "GET", None)
+            self._send_json(code, payload)
+            return
         self.send_error(405, "Method Not Allowed")
 
     def do_POST(self):
+        if self.path.startswith("/control/"):
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length) if length else b"{}"
+                body = json.loads(raw.decode("utf-8"))
+            except Exception as exc:  # noqa: BLE001
+                self._send_json(400, {"error_message": f"Bad request: {exc}"})
+                return
+            code, payload = _control.handle(self.path, "POST", body)
+            self._send_json(code, payload)
+            return
+
         if self.path != "/computer_tool":
             self.send_error(404, "Not Found")
             return
