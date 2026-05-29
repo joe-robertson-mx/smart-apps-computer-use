@@ -27,17 +27,28 @@ class FakeLauncher:
         self.started.append((app, case))
 
 
+# Isolate child processes from the computer-use server's console so a child's
+# exit/kill can never send a CTRL_C/CTRL_BREAK to (and shut down) the server.
+if sys.platform == "win32":
+    _DETACH = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0x8)
+    _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+else:
+    _DETACH = 0
+    _NO_WINDOW = 0
+
+
 def _run(cmd):
-    """Run a short command, never hang (hard timeout), never raise."""
+    """Run a short command (own console), never hang (hard timeout), never raise."""
     try:
-        subprocess.run(cmd, capture_output=True, timeout=20)
+        subprocess.run(cmd, capture_output=True, timeout=20, creationflags=_NO_WINDOW)
     except Exception:
         pass
 
 
 def _spawn(args):
+    """Launch a GUI app fully detached from our console; never raise."""
     try:
-        subprocess.Popen(args, cwd=HERE)
+        subprocess.Popen(args, cwd=HERE, creationflags=_DETACH, close_fds=True)
     except Exception:
         pass
 
