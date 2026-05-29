@@ -4,11 +4,10 @@ import os
 from scenario_control import ControlHandler, FakeLauncher
 
 
-def test_setup_clears_records_and_launches(tmp_path):
+def test_setup_clears_records_and_bumps_reset(tmp_path):
     data_dir = tmp_path
     (data_dir / "warranty_cases.json").write_text(json.dumps([{"old": 1}]), encoding="utf-8")
-    launcher = FakeLauncher()
-    handler = ControlHandler(data_dir=str(data_dir), launcher=launcher)
+    handler = ControlHandler(data_dir=str(data_dir), launcher=FakeLauncher())
 
     code, body = handler.handle("/control/setup", "POST",
                                 {"app": "warranty", "case": {"case_id": "EQ-2026-0042"}})
@@ -16,7 +15,9 @@ def test_setup_clears_records_and_launches(tmp_path):
     assert body["ready"] is True
     assert body["baseline_count"] == 0
     assert json.loads((data_dir / "warranty_cases.json").read_text()) == []
-    assert launcher.started == [("warranty", {"case_id": "EQ-2026-0042"})]
+    # setup no longer manages processes (that risked the server); it bumps a reset
+    # token the desktop app watches to reset its own form.
+    assert (data_dir / "_reset.txt").exists()
 
 
 def test_records_returns_file_contents(tmp_path):

@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.parse
 
 RECORDS_FILE = {"warranty": "warranty_cases.json", "returns": "dispatch_records.json"}
@@ -117,8 +118,11 @@ class ControlHandler:
             app = body["app"]
             os.makedirs(self.data_dir, exist_ok=True)
             open(self._records_path(app), "w", encoding="utf-8").write("[]")
-            self.launcher.stop(app)
-            self.launcher.start(app, body.get("case", {}))
+            # Bump a reset token the desktop app watches, so it resets its form for
+            # the next episode WITHOUT us managing any process (spawning/killing from
+            # the single-threaded server propagated a console signal that killed it).
+            # The web target resets via the agent navigating back to the form.
+            open(os.path.join(self.data_dir, "_reset.txt"), "w", encoding="utf-8").write(str(time.time()))
             return 200, {"ready": True, "baseline_count": 0}
 
         if route == "/control/records" and method == "GET":

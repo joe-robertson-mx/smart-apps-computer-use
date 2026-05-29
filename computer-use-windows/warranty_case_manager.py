@@ -1,4 +1,4 @@
-"""Warranty Case Manager v2.3 - legacy desktop app stand-in (BOAT 2026 demo).
+"""Complaint Resolution System v2.3 - legacy desktop app stand-in (BOAT 2026 demo).
 
 A deliberately old-school Windows Forms-looking tkinter app. The computer-use
 agent brings it to focus, fills the Resolution / Status / Dispatch Ref fields,
@@ -17,12 +17,13 @@ from tkinter import messagebox, ttk
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(APP_DIR, "data")
 CASES_FILE = os.path.join(DATA_DIR, "warranty_cases.json")
+RESET_FILE = os.path.join(DATA_DIR, "_reset.txt")
 
 # Pre-filled demo case so the agent never has to search for a record.
-CASE_ID = "WC-2026-0042"
-CUSTOMER = "Müller, Hans"
-PRODUCT = "Industrial Sensor Unit ISU-400"
-STATUS_OPTIONS = ["Pending", "Under Review", "Warranty Approved", "Rejected", "Closed"]
+CASE_ID = "EQ-2026-0042"
+CUSTOMER = "Robertson, J."
+PRODUCT = "Evora Alloy Wheel AW-200"
+STATUS_OPTIONS = ["Pending", "Under Investigation", "Replacement Approved", "Rejected", "Resolved"]
 
 # Legacy Windows Forms palette.
 BG = "#d4d0c8"          # classic 'control' grey
@@ -36,7 +37,7 @@ class WarrantyCaseManager:
         self.root = root
         self.submitted = False
 
-        root.title("Warranty Case Manager v2.3")
+        root.title("Complaint Resolution System v2.3")
         root.configure(bg=BG)
         root.resizable(False, False)
 
@@ -101,6 +102,36 @@ class WarrantyCaseManager:
         self.status_var = tk.StringVar(value="Ready")
         status_bar = tk.Label(root, textvariable=self.status_var, bg=BG, font=LABEL_FONT, anchor="w", relief="sunken", bd=1)
         status_bar.grid(row=row, column=0, columnspan=2, sticky="we", padx=2, pady=(6, 2))
+
+        # Watch for an external reset signal: the lab bumps _reset.txt between
+        # episodes, and we reset the form to its starting state with no process
+        # restart (restarting the app from the server would risk killing it).
+        self._last_reset_token = self._reset_token()
+        self.root.after(700, self._poll_reset)
+
+    def _reset_token(self):
+        try:
+            return open(RESET_FILE, encoding="utf-8").read().strip()
+        except Exception:
+            return ""
+
+    def _poll_reset(self):
+        tok = self._reset_token()
+        if tok and tok != self._last_reset_token:
+            self._last_reset_token = tok
+            self._external_reset()
+        self.root.after(700, self._poll_reset)
+
+    def _external_reset(self):
+        self.resolution.delete("1.0", tk.END)
+        self.status.current(0)
+        self.dispatch_ref.delete(0, tk.END)
+        self.case_id.delete(0, tk.END)
+        self.case_id.insert(0, CASE_ID)
+        self.submit_btn.config(state="normal")
+        self.submitted = False
+        self.status_var.set("Ready")
+        self.root.iconify()
 
     def on_clear(self):
         if self.submitted:
