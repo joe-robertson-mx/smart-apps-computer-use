@@ -52,6 +52,24 @@ if sys.platform == "win32":
 pyautogui.PAUSE = 0.05
 pyautogui.FAILSAFE = False
 
+# Swallow console Ctrl+C / Ctrl+Break. The computer-use agent types into whatever
+# window has focus; if it ever focuses this server's console and sends a Ctrl+C
+# (e.g. while probing or during a runaway), the default handler would kill the
+# server mid-run. Returning True from the handler ignores those events.
+if sys.platform == "win32":
+    try:
+        import ctypes
+
+        _CTRL_HANDLER = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_uint)
+
+        def _swallow_console_ctrl(event):  # CTRL_C_EVENT=0, CTRL_BREAK_EVENT=1
+            return True
+
+        _console_ctrl_ref = _CTRL_HANDLER(_swallow_console_ctrl)
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(_console_ctrl_ref, True)
+    except Exception:
+        pass
+
 # Contract port is 8081 (matches the Linux server). Override with
 # COMPUTER_USE_PORT if 8081 is taken on the demo machine.
 PORT = int(os.environ.get("COMPUTER_USE_PORT", "8081"))
