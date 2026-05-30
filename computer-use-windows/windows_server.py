@@ -74,6 +74,13 @@ if sys.platform == "win32":
 # COMPUTER_USE_PORT if 8081 is taken on the demo machine.
 PORT = int(os.environ.get("COMPUTER_USE_PORT", "8081"))
 
+# Log to a file (not stdout): the server runs under pythonw with no console, so
+# there is no console window the computer-use agent can focus, Ctrl+C, or close.
+import logging
+logging.basicConfig(filename=r"C:\cu_server.log", level=logging.INFO,
+                    format="%(asctime)s %(message)s")
+_log = logging.getLogger("cu")
+
 # xdotool / X11 keysyms (what the computer-use model emits) -> pyautogui keys.
 KEYSYM_MAP = {
     "return": "enter",
@@ -274,7 +281,7 @@ class ComputerToolHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error_message": str(exc)})
 
     def log_message(self, fmt, *args):
-        sys.stdout.write("%s - %s\n" % (self.address_string(), fmt % args))
+        _log.info("%s - %s", self.address_string(), fmt % args)
 
 
 def run_server():
@@ -282,11 +289,11 @@ def run_server():
     # works. The Linux server binds IPv6 "::", which does NOT dual-stack to
     # IPv4 on Windows.
     httpd = HTTPServer(("0.0.0.0", PORT), ComputerToolHandler)
-    print(f"Starting Windows computer-use server on port {PORT}...")
+    _log.info("Starting Windows computer-use server on port %s", PORT)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down.")
+        _log.info("Shutting down")
         httpd.server_close()
 
 

@@ -27,8 +27,9 @@ REM Give the portal a moment to come up, then open it in the browser.
 timeout /t 2 /nobreak >nul
 start msedge http://localhost:5050
 
-REM Start the Windows computer-use server last, in this console window so its
-REM logs are visible. Close this window to stop the server.
+REM Start the computer-use server windowless (pythonw, no console) so a stray
+REM agent keystroke/click can never focus, Ctrl+C, or close it. It writes its own
+REM log to C:\cu_server.log.
 timeout /t 1 /nobreak >nul
 echo Starting Windows computer use server (port 8081, or COMPUTER_USE_PORT if set)...
-python -u windows_server.py > C:\cu_server.log 2>&1
+start "" pythonw windows_server.py
