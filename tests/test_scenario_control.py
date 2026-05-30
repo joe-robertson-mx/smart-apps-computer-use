@@ -39,3 +39,12 @@ def test_unknown_path_404(tmp_path):
     handler = ControlHandler(data_dir=str(tmp_path), launcher=FakeLauncher())
     code, body = handler.handle("/control/nope", "GET", None)
     assert code == 404
+
+
+def test_reset_get_clears_and_bumps(tmp_path):
+    (tmp_path / "warranty_cases.json").write_text(json.dumps([{"old": 1}]), encoding="utf-8")
+    handler = ControlHandler(data_dir=str(tmp_path), launcher=FakeLauncher())
+    code, body = handler.handle("/reset?app=warranty", "GET", None)
+    assert code == 200 and body["ready"] is True and body["app"] == "warranty"
+    assert json.loads((tmp_path / "warranty_cases.json").read_text()) == []
+    assert (tmp_path / "_reset.txt").exists()

@@ -104,6 +104,22 @@ class ControlHandler:
         except (json.JSONDecodeError, OSError):
             return []
 
+    def _reset(self, app: str):
+        """Programmatic reset to a known-good starting state for ONE computer-use run:
+        clear the app's records file + bump the desktop app's reset token (the app
+        watches it and clears its form, re-enables Submit, re-minimises), and for the
+        web target open a fresh form tab. Call this before each run so the prompt never
+        has to recover from a stale state — e.g. the desktop app disables Submit after a
+        submission, which no prompt can undo."""
+        os.makedirs(self.data_dir, exist_ok=True)
+        if app in RECORDS_FILE:
+            open(self._records_path(app), "w", encoding="utf-8").write("[]")
+        open(os.path.join(self.data_dir, "_reset.txt"), "w", encoding="utf-8").write(str(time.time()))
+        if app == "returns":
+            self.launcher.stop("returns")
+            self.launcher.start("returns", {})
+        return 200, {"ready": True, "app": app, "baseline_count": 0}
+
     def handle(self, path: str, method: str, body: dict | None):
         parsed = urllib.parse.urlparse(path)
         route = parsed.path
@@ -113,22 +129,12 @@ class ControlHandler:
             return 200, {"ok": True}
 
         if route == "/control/setup" and method == "POST":
-            app = body["app"]
-            os.makedirs(self.data_dir, exist_ok=True)
-            open(self._records_path(app), "w", encoding="utf-8").write("[]")
-            # Bump a reset token the desktop app watches, so it resets its form for
-            # the next episode WITHOUT us managing any process (spawning/killing from
-            # the single-threaded server propagated a console signal that killed it).
-            # The web target resets via the agent navigating back to the form.
-            open(os.path.join(self.data_dir, "_reset.txt"), "w", encoding="utf-8").write(str(time.time()))
-            if app == "returns":
-                # Web target: close the browser and reopen a fresh form tab so each
-                # episode starts on a blank form (not the prior run's confirmation
-                # page). Safe now that the server is windowless — detached children
-                # cannot send a console signal back to it.
-                self.launcher.stop("returns")
-                self.launcher.start("returns", body.get("case", {}))
-            return 200, {"ready": True, "baseline_count": 0}
+            return self._reset(body["app"])
+
+        # Simple GET alias so the demo / Mendix can reset the environment to a known
+        # state before each computer-use run: GET /reset?app=warranty|returns
+        if route == "/reset" and method == "GET":
+            return self._reset(query.get("app", ["warranty"])[0])
 
         if route == "/control/records" and method == "GET":
             app = query.get("app", [""])[0]
