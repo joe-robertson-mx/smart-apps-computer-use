@@ -242,7 +242,7 @@ class ComputerToolHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path.startswith("/control/"):
+        if self.path.startswith("/control/") or self.path.startswith("/reset"):
             code, payload = _control.handle(self.path, "GET", None)
             self._send_json(code, payload)
             return
