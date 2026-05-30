@@ -1,0 +1,11 @@
+id: returns-wheel-single
+mode: single_prompt
+target: returns
+case:
+  case_id: EQ-2026-0042
+  customer: "Robertson, J."
+  product_code: "AW-200-REAR"
+expected_record:
+  # Keys match returns_portal/app.py's submit payload.
+  dispatch_type: "Wheel Replacement"
+  courier: "DHL"

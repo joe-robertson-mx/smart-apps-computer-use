@@ -72,23 +72,19 @@ class SubprocessLauncher:
             return False
 
     def stop(self, app):
-        if sys.platform != "win32":
-            return
-        if app == "warranty":
-            _run(["taskkill", "/F", "/FI", f"WINDOWTITLE eq {self.WARRANTY_TITLE}"])
-        elif app == "returns":
-            _run(["taskkill", "/F", "/IM", "msedge.exe"])
+        # No-op: never kill the browser. A cold msedge restart shows a messy
+        # restore/first-run page the agent fights with. The returns reset opens a
+        # fresh form tab in the existing browser instead (see start()).
+        return
 
     def start(self, app, case):
-        if app == "warranty":
-            _spawn(["pythonw", os.path.join(HERE, "warranty_case_manager.py")])
-        elif app == "returns":
+        if app == "returns":
             if not self._flask_up():
                 _spawn(["pythonw", os.path.join(HERE, "returns_portal", "app.py")])
             if sys.platform == "win32":
-                _run(["cmd", "/c", "start", "", "msedge", "--new-window",
-                      "--no-first-run", "--disable-session-crashed-bubble",
-                      "http://localhost:5050"])
+                # Open the blank form in the EXISTING browser; it becomes the active
+                # tab. No cold restart, so no restore/first-run page to fight.
+                _run(["cmd", "/c", "start", "", "msedge", "http://localhost:5050"])
 
 
 class ControlHandler:
