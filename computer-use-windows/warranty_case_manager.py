@@ -18,6 +18,10 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(APP_DIR, "data")
 CASES_FILE = os.path.join(DATA_DIR, "warranty_cases.json")
 RESET_FILE = os.path.join(DATA_DIR, "_reset.txt")
+# Milliseconds after a successful submit before the form auto-resets to a fresh,
+# submittable state, so repeated runs/demo takes start clean with no external
+# action. Override with WARRANTY_AUTORESET_MS.
+AUTO_RESET_MS = int(os.environ.get("WARRANTY_AUTORESET_MS", "6000"))
 
 # Pre-filled demo case so the agent never has to search for a record.
 CASE_ID = "EQ-2026-0042"
@@ -167,6 +171,10 @@ class WarrantyCaseManager:
         self.status_var.set(f"Case {case_id} submitted — {status}")
         self.submit_btn.config(state="disabled")
         self.submitted = True
+        # Auto-reset to a fresh, submittable state a few seconds later so the next run
+        # starts clean with no external action. (The lab also resets explicitly via the
+        # _reset.txt token / GET /reset; _external_reset is idempotent.)
+        self.root.after(AUTO_RESET_MS, self._external_reset)
 
     def _append_record(self, record: dict):
         os.makedirs(DATA_DIR, exist_ok=True)
