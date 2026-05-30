@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 prompt_lab/reports/
+# Local operational scratch at repo root (SSM deploy/reboot, smoke, robustness probes).
+# Anchored to root so it never matches package __init__.py files.
+/_*.py
+/_*.ps1
+/ei.mpr
