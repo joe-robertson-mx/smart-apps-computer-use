@@ -15,8 +15,8 @@ Each run is scored on the real app's submitted record (correct fields + safe beh
   **18/18 (100%)** across all rounds, every run ~16–17 steps, ~**$0.55/run**. Clears the 95% bar.
 - **Use Sonnet 4.5, not Opus 4.7, for this beat.** Opus scored **6/8** (two runaways) at **7–13× the cost**
   ($4–9.6/run). Counter-intuitive but consistent: Opus explored more and hit the step cap.
-- Paste-ready Mendix prompt below.
-- **Returns/web beat:** see "Returns" section (screening run).
+- **Returns web beat is also solved:** `returns_s2` (directive single-prompt) on Sonnet 4.5 =
+  **10/10 (100%)**, ~11 steps, ~$0.28/run. Paste-ready prompts for both beats below.
 
 ---
 
@@ -82,9 +82,54 @@ Winner **v3**: 18/18 (100%), 16–20 steps, ~$0.55/run.
 
 ---
 
-## Returns / web beat (conversational)
+## Returns / web beat
 
-_Screening in progress — results appended when complete._
+**Solved.** Optimised prompt = **`returns_s2`** (single-prompt, directive) on **Sonnet 4.5**:
+**10/10 (100%)**, steady **11 steps**, ~**$0.28/run**. All three directive variants (`returns_s1/s2/s3`)
+scored 10/10; `s2` is the tightest.
+
+### What it took
+The conversational, multi-turn approach was unreliable (1/10, then 0/9). Two root causes, both fixed:
+1. **Stale browser between episodes** — after a submit the browser sat on the confirmation page, so
+   later episodes never saw a blank form. Fix: `/control/setup` now opens a fresh form tab in the
+   **existing** browser (killing + cold-restarting msedge was worse — it showed a restore/first-run page).
+2. **Passive prompting** — "one step at a time / wait for instructions" made the agent describe rather
+   than act. Fix: a **directive single-prompt** that names every field value and says act, don't narrate.
+
+### The winning returns prompt — paste into Mendix
+
+**TestSystemPrompt**
+```
+You are operating a legacy web form (the "Returns Dispatch Portal") in a browser at localhost:5050 by screenshot and mouse/keyboard. Be decisive and act - click and type, do not narrate.
+Step 0: screenshot. If the empty form is not shown (e.g. a confirmation page is up), navigate to http://localhost:5050 via the address bar first.
+Then complete the form the user describes:
+- Dropdowns (Dispatch Type, Courier): click to open, then click the exact option.
+- Text fields (Shipping Address lines, Notes): click into the field and type.
+- Leave the pre-filled Case Reference / Customer / Product Code.
+Finish by clicking "Create Dispatch Record"; screenshot to confirm the record was created.
+```
+
+**TestUserPrompt** (fill the values from the case)
+```
+In the Returns Dispatch Portal, raise a dispatch for case {CaseRef}. Set Dispatch Type = "Wheel Replacement", Courier = "DHL", Shipping Address = "<address>", Notes = "<note>", then create the record.
+```
+
+### Demo note (conversational pacing)
+You wanted the web beat driven by sequential prompts live. The single-prompt above is the *reliable*
+form; for the demo you can split the one user instruction into two sequential prompts without changing
+the system prompt — e.g. (1) "set Dispatch Type to Wheel Replacement and Courier to DHL", then
+(2) "add the shipping address and a note, then create the dispatch record". The multi-turn variant is
+inherently less reliable, so keep each prompt directive ("do it now", not "tell me when ready").
+
+### Returns results (Sonnet 4.5)
+
+| Variant | Screening (×3) | Confirmation (×7) | **Total** | Steps |
+|---|---|---|---|---|
+| **returns_s2** | 3/3 | 7/7 | **10/10** | 11 |
+| returns_s1 | 3/3 | 7/7 | 10/10 | 11 |
+| returns_s3 | 3/3 | 7/7 | 10/10 | 13–15 |
+
+Earlier conversational variants (`returns_v1`–`v5`): 1/10 best — not recommended.
 
 ---
 
