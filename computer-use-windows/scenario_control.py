@@ -86,7 +86,9 @@ class SubprocessLauncher:
             if not self._flask_up():
                 _spawn(["pythonw", os.path.join(HERE, "returns_portal", "app.py")])
             if sys.platform == "win32":
-                _run(["cmd", "/c", "start", "", "msedge", "http://localhost:5050"])
+                _run(["cmd", "/c", "start", "", "msedge", "--new-window",
+                      "--no-first-run", "--disable-session-crashed-bubble",
+                      "http://localhost:5050"])
 
 
 class ControlHandler:
@@ -123,6 +125,13 @@ class ControlHandler:
             # the single-threaded server propagated a console signal that killed it).
             # The web target resets via the agent navigating back to the form.
             open(os.path.join(self.data_dir, "_reset.txt"), "w", encoding="utf-8").write(str(time.time()))
+            if app == "returns":
+                # Web target: close the browser and reopen a fresh form tab so each
+                # episode starts on a blank form (not the prior run's confirmation
+                # page). Safe now that the server is windowless — detached children
+                # cannot send a console signal back to it.
+                self.launcher.stop("returns")
+                self.launcher.start("returns", body.get("case", {}))
             return 200, {"ready": True, "baseline_count": 0}
 
         if route == "/control/records" and method == "GET":
