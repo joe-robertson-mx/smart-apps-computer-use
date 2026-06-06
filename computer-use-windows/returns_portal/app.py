@@ -21,13 +21,13 @@ RECORDS_FILE = os.path.join(DATA_DIR, "dispatch_records.json")
 
 PORT = 5050
 
-DISPATCH_TYPES = ["Warranty Replacement", "Repair Return", "Goodwill Replacement", "Exchange"]
+DISPATCH_TYPES = ["Wheel Replacement", "Warranty Replacement", "Repair Return", "Goodwill Replacement", "Exchange"]
 COURIERS = ["DHL", "UPS", "FedEx", "GLS"]
 
 PREFILL = {
-    "case_reference": "WC-2026-0042",
-    "customer_name": "Müller, Hans",
-    "product_code": "ISU-400",
+    "case_reference": "EQ-2026-0042",
+    "customer_name": "Robertson, J.",
+    "product_code": "AW-200-REAR",
 }
 
 app = Flask(__name__)
