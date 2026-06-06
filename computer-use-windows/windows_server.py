@@ -23,7 +23,7 @@ import io
 import json
 import os
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pyautogui
 
@@ -288,7 +288,13 @@ def run_server():
     # Bind IPv4 0.0.0.0 so the Mendix default LocalhostIPAddress (127.0.0.1)
     # works. The Linux server binds IPv6 "::", which does NOT dual-stack to
     # IPv4 on Windows.
-    httpd = HTTPServer(("0.0.0.0", PORT), ComputerToolHandler)
+    #
+    # ThreadingHTTPServer (not HTTPServer): each request is handled in its own
+    # daemon thread, so one stuck/slow action (e.g. a hung pyautogui call on a
+    # wedged desktop) can no longer block the accept loop and freeze the whole
+    # server. Previously a single wedged request made it stop answering entirely
+    # — every new connection, even loopback, timed out until a reboot.
+    httpd = ThreadingHTTPServer(("0.0.0.0", PORT), ComputerToolHandler)
     _log.info("Starting Windows computer-use server on port %s", PORT)
     try:
         httpd.serve_forever()
